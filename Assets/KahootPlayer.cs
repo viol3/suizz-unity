@@ -1,0 +1,79 @@
+using DG.Tweening;
+using System.Collections;
+using TMPro;
+using UnityEngine;
+
+public class KahootPlayer : MonoBehaviour
+{
+    [SerializeField] private float _offsetPerDamage = -1f;
+    [SerializeField] private float _damageSpeed = 0.5f;
+    [Space]
+    [SerializeField] private TMP_Text _nameText;
+    [SerializeField] private GameObject _mesh;
+    [SerializeField] private ParticleSystem _splashParticle;
+
+    private KahootTile _tile;
+
+    private bool _dead = false;
+    private bool _hunted = false;
+
+    public void InitForGameplay()
+    {
+        _tile = KahootGameManager.Instance.GetTile(transform.GetSiblingIndex());
+        _tile.gameObject.SetActive(true);
+        _tile.transform.position = transform.position;
+        _tile.transform.DOMoveY(5.8f, 1f).SetEase(Ease.InOutSine);
+        transform.DOMoveY(5.8f, 1f).SetEase(Ease.InOutSine);
+    }
+
+    public bool IsDead()
+    {
+        return _dead;
+    }
+
+    public bool IsHunted()
+    {
+        return _hunted;
+    }
+
+    public void Kill()
+    {
+        _mesh.gameObject.SetActive(false);
+        _splashParticle.Play();
+    }
+
+    public void Hunt()
+    {
+        _hunted = true;
+    }
+
+    public void SetName(string name)
+    {
+        _nameText.text = name;
+    }
+
+    public void Damage(int damage)
+    {
+        StartCoroutine(DamageProcess(damage));
+    }
+
+    IEnumerator DamageProcess(int damage)
+    {
+        float y = transform.position.y + (_offsetPerDamage * damage);
+        bool death = false;
+        
+        if(y < 0)
+        {
+            y = 0f;
+            death = true;
+        }
+        transform.DOMoveY(y, _damageSpeed).SetSpeedBased();
+        yield return _tile.transform.DOMoveY(y, _damageSpeed).SetSpeedBased().WaitForCompletion();
+        if(death)
+        {
+            _dead = true;
+            _tile.gameObject.SetActive(false);
+            _nameText.color = Color.red;
+        }
+    }
+}
