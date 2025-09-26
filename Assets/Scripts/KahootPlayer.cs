@@ -17,6 +17,8 @@ public class KahootPlayer : MonoBehaviour
     private bool _dead = false;
     private bool _hunted = false;
 
+    private string _nickname = "";
+    private string _address = "";
     public void InitForGameplay()
     {
         _tile = KahootGameManager.Instance.GetTile(transform.GetSiblingIndex());
@@ -36,9 +38,32 @@ public class KahootPlayer : MonoBehaviour
         return _hunted;
     }
 
+    public void SetData(string name, string address)
+    {
+        _nameText.text = name;
+        _address = address;
+        _nickname = name;
+    }
+
+    public bool IsMe()
+    {
+        return _address.Equals(KahootGameManager.Instance.GetAddress());
+    }
+
+    public string GetName()
+    {
+        return _nickname;
+    }
+
+    public string GetAddress()
+    {
+        return _address;
+    }
+
     public void Kill()
     {
         _mesh.gameObject.SetActive(false);
+        _nameText.gameObject.SetActive(false);
         _splashParticle.Play();
     }
 
@@ -47,10 +72,6 @@ public class KahootPlayer : MonoBehaviour
         _hunted = true;
     }
 
-    public void SetName(string name)
-    {
-        _nameText.text = name;
-    }
 
     public void Damage(int damage)
     {
@@ -74,6 +95,7 @@ public class KahootPlayer : MonoBehaviour
             _dead = true;
             _tile.gameObject.SetActive(false);
             _nameText.color = Color.red;
+            EventBus.OnPlayerDead?.Invoke(this);
         }
     }
 }

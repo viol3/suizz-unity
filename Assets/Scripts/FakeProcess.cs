@@ -2,18 +2,14 @@ using UnityEngine;
 
 public class FakeProcess : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
-    {
-        
-    }
 
-    // Update is called once per frame
+    private int _playerCounter = 1;
+   
     void Update()
     {
         if(Input.GetKeyDown(KeyCode.Q))
         {
-            EventBus.OnLoginSuccess?.Invoke();
+            EventBus.OnLoginSuccess?.Invoke("0xplayer0", "0x8880");
         }
         if (Input.GetKeyDown(KeyCode.W))
         {
@@ -21,7 +17,8 @@ public class FakeProcess : MonoBehaviour
         }
         if (Input.GetKeyDown(KeyCode.E))
         {
-            EventBus.OnNewPlayerJoined?.Invoke(-1, "0xali");
+            EventBus.OnNewPlayerJoined?.Invoke(-1, "trey" + _playerCounter, "0x888" + _playerCounter);
+            _playerCounter++;
         }
         if (Input.GetKeyDown(KeyCode.R))
         {
