@@ -13,7 +13,9 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
     [Space]
     [SerializeField] private GameObject _roomPanel;
     [SerializeField] private GameObject _createRoomPanel;
+    [SerializeField] private GameObject _startGameButton;
     [Space]
+    [SerializeField] private TMP_InputField _roomCodeInput;
     [SerializeField] private TMP_Text _roomCodeText;
     [SerializeField] private TMP_Text _nickNameText;
     [SerializeField] private TMP_Text _waitingForPlayersText;
@@ -23,13 +25,15 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
 
     private string _nickname = "";
     private string _suiAddress = "";
+    private bool _isHost = false;
+    private bool _gameStarted = false;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         EventBus.OnLoginSuccess.AddListener(OnLoginSuccess);
         EventBus.OnCreatedRoomSuccess.AddListener(OnCreatedRoom);
-        EventBus.OnNewPlayerJoined.AddListener(OnNewPlayerJoined);
-        EventBus.OnGameStarted.AddListener(OnGameStarted);
+        EventBus.OnJoinRoomSuccess.AddListener(OnJoinRoomSuccess);
+        EventBus.OnRoomUpdate.AddListener(OnRoomUpdate);
         EventBus.OnQuestionReceived.AddListener(OnQuestionReceived);
         EventBus.OnQuestionEnded.AddListener(OnQuestionEnded);
         EventBus.OnLeaderboardReceived.AddListener(OnLeaderboardReceived);
@@ -39,8 +43,8 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
     {
         EventBus.OnLoginSuccess.RemoveListener(OnLoginSuccess);
         EventBus.OnCreatedRoomSuccess.RemoveListener(OnCreatedRoom);
-        EventBus.OnNewPlayerJoined.RemoveListener(OnNewPlayerJoined);
-        EventBus.OnGameStarted.RemoveListener(OnGameStarted);
+        EventBus.OnJoinRoomSuccess.RemoveListener(OnJoinRoomSuccess);
+        EventBus.OnRoomUpdate.RemoveListener(OnRoomUpdate);
         EventBus.OnQuestionReceived.RemoveListener(OnQuestionReceived);
         EventBus.OnQuestionEnded.RemoveListener(OnQuestionEnded);
         EventBus.OnLeaderboardReceived.RemoveListener(OnLeaderboardReceived);
@@ -64,6 +68,7 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
         _nickname = nickname;
         _nickNameText.text = nickname;
         _nickNameText.gameObject.SetActive(true);
+        WebSocketManager.Instance.ConnectServer();
     }
 
     void OnCreatedRoom(string code)
@@ -71,44 +76,82 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
         _roomCodeText.text = code;
         LoadingManager.Instance.SetLoadingActive(false);
         _createRoomPanel.SetActive(true);
+        _isHost = true;
     }
 
-    void OnNewPlayerJoined(int skinIndex, string name, string address)
+    void OnJoinRoomSuccess()
     {
-        KahootPlayer nextPlayer = ActivateNextPlayer(name, address);
-        bool isLast = ActivateNextPlayerIcon();
-        if(isLast)
+        LoadingManager.Instance.SetLoadingActive(false);
+        _roomCodeText.text = _roomCodeInput.text;
+        _createRoomPanel.SetActive(true);
+        _isHost = false;
+    }
+
+    void OnRoomUpdate(UserData[] users)
+    {
+        for (int i = 0; i < _playerParent.childCount; i++)
         {
-            _waitingForPlayersText.gameObject.SetActive(false);
-            _gameStartingPlayersText.gameObject.SetActive(true);
+            KahootPlayer player = _playerParent.GetChild(i).GetComponent<KahootPlayer>();
+            player.gameObject.SetActive(false);
+        }
+
+        for (int i = 0; i < _playerListParent.childCount; i++)
+        {
+            Image playerIcon = _playerListParent.GetChild(i).GetComponent<Image>();
+            GameUtility.ChangeAlphaImage(playerIcon, 0.5f);
+        }
+
+        for (int i = 0; i < users.Length; i++)
+        {
+            KahootPlayer player = _playerParent.GetChild(i).GetComponent<KahootPlayer>();
+            player.SetData(users[i].name, users[i].id);
+            player.gameObject.SetActive(true);
+            Image playerIcon = _playerListParent.GetChild(i).GetComponent<Image>();
+            GameUtility.ChangeAlphaImage(playerIcon, 1f);
+        }
+        _waitingForPlayersText.gameObject.SetActive(users.Length < 4);
+        if (_isHost)
+        {
+            _gameStartingPlayersText.gameObject.SetActive(false);
+            _startGameButton.SetActive(users.Length == 4);
+        }
+        else
+        {
+            _gameStartingPlayersText.gameObject.SetActive(users.Length == 4);
+            _startGameButton.SetActive(false);
         }
     }
 
-    void OnGameStarted()
-    {
-        _createRoomPanel.SetActive(false);
-        _gameStartingPlayersText.gameObject.SetActive(false);
-        InitPlayersForGameplay();
-    }
 
     void OnQuestionReceived(string question, string answersText)
     {
-        
+        if(!_gameStarted)
+        {
+            _createRoomPanel.SetActive(false);
+            _gameStartingPlayersText.gameObject.SetActive(false);
+            InitPlayersForGameplay();
+            LoadingManager.Instance.SetLoadingActive(false);
+            _gameStarted = true;
+        }
+        QuestionManager.Instance.SetPanelActive(true);
         string[] answers = answersText.Split('|');
         QuestionManager.Instance.SetQuestion(question);
         QuestionManager.Instance.SetAnswers(answers);
-        QuestionManager.Instance.SetPanelActive(true);
         CounterManager.Instance.StartCounter(20);
     }
 
-    void OnQuestionEnded(int player1Damage, int player2Damage, int player3Damage, int player4Damage)
+    void OnQuestionEnded(UserData[] users)
     {
         QuestionManager.Instance.SetPanelActive(false);
         CounterManager.Instance.StopCounter();
-        _playerParent.GetChild(0).GetComponent<KahootPlayer>().Damage(player1Damage);
-        _playerParent.GetChild(1).GetComponent<KahootPlayer>().Damage(player2Damage);
-        _playerParent.GetChild(2).GetComponent<KahootPlayer>().Damage(player3Damage);
-        _playerParent.GetChild(3).GetComponent<KahootPlayer>().Damage(player4Damage);
+        for (int i = 0; i < users.Length; i++)
+        {
+            KahootPlayer player = GetPlayerFromAddress(users[i].id);
+            if(player)
+            {
+                player.ApplyScore(users[i].score);
+            }
+        }
     }
 
     void OnLeaderboardReceived(string rankAddressesText)
@@ -148,9 +191,28 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
         return result;
     }
 
+    public void OnJoinRoomButtonClick()
+    {
+        _roomPanel.gameObject.SetActive(false);
+        LoadingManager.Instance.SetLoadingActive(true);
+        string roomCode = _roomCodeInput.text;
+        WebSocketManager.Instance.SendJoinRoom(roomCode);
+    }
+
     public void OnCreateRoomButtonClick()
     {
         StartCoroutine(CreateRoomProcess());
+    }
+
+    public void OnStartGameButtonClick()
+    {
+        if(!_isHost)
+        {
+            return;
+        }
+        WebSocketManager.Instance.SendStartGame(_roomCodeText.text);
+        _createRoomPanel.SetActive(false);
+        LoadingManager.Instance.SetLoadingActive(true);
     }
 
     public string GetNickname()
@@ -167,6 +229,7 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
     {
         _roomPanel.gameObject.SetActive(false);
         LoadingManager.Instance.SetLoadingActive(true);
+        WebSocketManager.Instance.SendCreateRoom();
         yield return null;
     }
 
@@ -177,35 +240,6 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
         {
             _playerParent.GetChild(i).GetComponent<KahootPlayer>().InitForGameplay();
         }
-    }
-
-    bool ActivateNextPlayerIcon()
-    {
-        for (int i = 0; i < _playerListParent.childCount; i++)
-        {
-            Image playerIcon = _playerListParent.GetChild(i).GetComponent<Image>();
-            if(playerIcon.color.a < 0.8)
-            {
-                GameUtility.ChangeAlphaImage(playerIcon, 1f);
-                return i == _playerListParent.childCount -1 ;
-            }
-        }
-        return false;
-    }
-
-    KahootPlayer ActivateNextPlayer(string name, string address)
-    {
-        for (int i = 0; i < _playerParent.childCount; i++)
-        {
-            if(!_playerParent.GetChild(i).gameObject.activeInHierarchy)
-            {
-                KahootPlayer kp = _playerParent.GetChild(i).GetComponent<KahootPlayer>();
-                kp.SetData(name, address);
-                kp.gameObject.SetActive(true);
-                return kp;
-            }
-        }
-        return null ;
     }
 
     void HuntDeadPlayerInSameXWithShark()
@@ -223,6 +257,19 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
                 return;
             }
         }
+    }
+
+    KahootPlayer GetPlayerFromAddress(string address)
+    {
+        for (int i = 0; i < _playerParent.childCount; i++)
+        {
+            KahootPlayer kp = _playerParent.GetChild(i).GetComponent<KahootPlayer>();
+            if(kp.GetAddress().Equals(address))
+            {
+                return kp;
+            }
+        }
+        return null;
     }
 
 }

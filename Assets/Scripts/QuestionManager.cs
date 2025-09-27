@@ -16,9 +16,11 @@ public class QuestionManager : LocalSingleton<QuestionManager>
 
     public void SetAnswers(params string[] answers)
     {
+
         for (int i = 0; i < _options.Length; i++)
         {
             _options[i].SetText(answers[i]);
+            _options[i].ResetChosen();
         }
     }
 

@@ -109,21 +109,16 @@
 
 
     </script>
-	<script src="https://accounts.google.com/gsi/client" async defer></script>
+
 <script>
-  function googleLoginUnity() {
-    google.accounts.id.initialize({
-      client_id: "551636460599-vp01fqid2d6lg568vb40hg2eq3vhgevq.apps.googleusercontent.com",
-      callback: handleCredentialResponse
-    });
-    google.accounts.id.prompt(); // popup açar
+  function googleLoginUnity() 
+  {
+	TriggerLogin();
   }
 
-  function handleCredentialResponse(response) 
-  {
-    // response.credential -> Google ID token
-    unityInstance.SendMessage("GoogleLoginManager", "OnGoogleLoginSuccess", response.credential);
-  }
 </script>
+
+<div id="enoki-root"></div>
+<script src="bundle.js"></script>
   </body>
 </html>

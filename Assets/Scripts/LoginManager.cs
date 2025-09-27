@@ -11,15 +11,22 @@ public class LoginManager : MonoBehaviour
     [DllImport("__Internal")]
     private static extern void LoginGoogle();
 
-    public void OnLoginButtonClick()
+    private void Start()
     {
-        StartCoroutine(LoginProcess());
-    }
 
-    IEnumerator LoginProcess()
+    }
+    public void OnLoginButtonClick()
     {
         _loginButton.gameObject.SetActive(false);
         LoadingManager.Instance.SetLoadingActive(true);
-        yield return null;
+#if !UNITY_EDITOR
+        LoginGoogle();
+#endif
     }
+
+    public void OnWalletConnected(string wallet)
+    {
+        EventBus.OnLoginSuccess?.Invoke(GameNameGenerator.GenerateName(wallet), wallet);
+    }
+
 }

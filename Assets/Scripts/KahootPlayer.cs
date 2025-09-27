@@ -17,6 +17,8 @@ public class KahootPlayer : MonoBehaviour
     private bool _dead = false;
     private bool _hunted = false;
 
+    private int _hp = 5;
+
     private string _nickname = "";
     private string _address = "";
     public void InitForGameplay()
@@ -26,6 +28,7 @@ public class KahootPlayer : MonoBehaviour
         _tile.transform.position = transform.position;
         _tile.transform.DOMoveY(5.8f, 1f).SetEase(Ease.InOutSine);
         transform.DOMoveY(5.8f, 1f).SetEase(Ease.InOutSine);
+        _hp = 5;
     }
 
     public bool IsDead()
@@ -72,6 +75,15 @@ public class KahootPlayer : MonoBehaviour
         _hunted = true;
     }
 
+    public void ApplyScore(int score)
+    {
+        int damage = _hp - score;
+        _hp -= damage;
+        if (damage > 0)
+        {
+            Damage(damage);
+        }
+    }
 
     public void Damage(int damage)
     {

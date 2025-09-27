@@ -9,7 +9,6 @@ mergeInto(LibraryManager.library,
   
   LoginGoogle : function()
   {
-	console.log("naber");
 	window.googleLoginUnity();
   },
 

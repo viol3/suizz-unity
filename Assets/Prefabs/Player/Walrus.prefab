@@ -10164,7 +10164,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 93206e90376d81f448fb6eb16e952e59, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _offsetPerDamage: -1
+  _offsetPerDamage: -1.2
   _damageSpeed: 2
   _nameText: {fileID: 1447759122378631965}
   _mesh: {fileID: 5664789239056029318}

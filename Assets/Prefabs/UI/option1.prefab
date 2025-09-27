@@ -116,6 +116,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0023da12ba4b47a45b07c86f7e9583e0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _normalColor: {r: 1, g: 1, b: 1, a: 1}
   _clickedColor: {r: 1, g: 0.8529709, b: 0.1566037, a: 1}
   _image: {fileID: 1338872463454483424}
   _textComponent: {fileID: 1266345470465171634}
