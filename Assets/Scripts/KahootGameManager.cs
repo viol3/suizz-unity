@@ -1,4 +1,5 @@
 using Ali.Helper;
+using DG.Tweening;
 using System.Collections;
 using TMPro;
 using UnityEngine;
@@ -14,6 +15,9 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
     [SerializeField] private GameObject _roomPanel;
     [SerializeField] private GameObject _createRoomPanel;
     [SerializeField] private GameObject _startGameButton;
+    [SerializeField] private GameObject _confetti;
+    [Space]
+    [SerializeField] private RectTransform _logoRect;
     [Space]
     [SerializeField] private TMP_InputField _roomCodeInput;
     [SerializeField] private TMP_Text _roomCodeText;
@@ -37,6 +41,9 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
         EventBus.OnQuestionReceived.AddListener(OnQuestionReceived);
         EventBus.OnQuestionEnded.AddListener(OnQuestionEnded);
         EventBus.OnLeaderboardReceived.AddListener(OnLeaderboardReceived);
+        EventBus.OnTimerReached.AddListener(OnTimerReached);
+        EventBus.OnHostAnswerReceived.AddListener(OnHostAnswerReceived);
+        ShowLogo();
     }
 
     private void OnDestroy()
@@ -48,16 +55,45 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
         EventBus.OnQuestionReceived.RemoveListener(OnQuestionReceived);
         EventBus.OnQuestionEnded.RemoveListener(OnQuestionEnded);
         EventBus.OnLeaderboardReceived.RemoveListener(OnLeaderboardReceived);
+        EventBus.OnTimerReached.RemoveListener(OnTimerReached);
+        EventBus.OnHostAnswerReceived.RemoveListener(OnHostAnswerReceived);
     }
 
-    private void Update()
+    void ShowLogo()
     {
-        HuntDeadPlayerInSameXWithShark();
+        _logoRect.DOKill(true);
+        _logoRect.DOAnchorPosY(-300f, 1f).SetEase(Ease.OutBounce);
+    }
+
+    void HideLogo()
+    {
+        _logoRect.DOKill(true);
+        _logoRect.DOAnchorPosY(500f, 1f).SetEase(Ease.Linear);
+    }
+
+    public bool IsHost()
+    {
+        return _isHost;
+    }
+
+    void OnTimerReached()
+    {
+        if(!_isHost)
+        {
+            return;
+        }
+        WebSocketManager.Instance.SendManualQuestionEnd(_roomCodeText.text);
     }
 
     public KahootTile GetTile(int index)
     {
         return _tileParent.GetChild(index).GetComponent<KahootTile>();
+    }
+
+    void OnHostAnswerReceived(string owner, int chosenIndex)
+    {
+        KahootPlayer player = GetPlayerFromAddress(owner);
+        QuestionManager.Instance.ChosenFromAPlayer(player.GetColor(), chosenIndex);
     }
 
     void OnLoginSuccess(string nickname, string address)
@@ -73,6 +109,7 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
 
     void OnCreatedRoom(string code)
     {
+        HideLogo();
         _roomCodeText.text = code;
         LoadingManager.Instance.SetLoadingActive(false);
         _createRoomPanel.SetActive(true);
@@ -81,6 +118,7 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
 
     void OnJoinRoomSuccess()
     {
+        HideLogo();
         LoadingManager.Instance.SetLoadingActive(false);
         _roomCodeText.text = _roomCodeInput.text;
         _createRoomPanel.SetActive(true);
@@ -89,6 +127,7 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
 
     void OnRoomUpdate(UserData[] users)
     {
+        Debug.Log("users length => " + users.Length);
         for (int i = 0; i < _playerParent.childCount; i++)
         {
             KahootPlayer player = _playerParent.GetChild(i).GetComponent<KahootPlayer>();
@@ -137,40 +176,47 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
         string[] answers = answersText.Split('|');
         QuestionManager.Instance.SetQuestion(question);
         QuestionManager.Instance.SetAnswers(answers);
-        CounterManager.Instance.StartCounter(20);
+        QuestionManager.Instance.Animation();
+        CounterManager.Instance.StartCounter(10);
     }
 
-    void OnQuestionEnded(UserData[] users)
+    void OnQuestionEnded(UserData[] users, int correctIndex)
     {
+        StartCoroutine(OnQuestionEndedProcess(users, correctIndex));
+    }
+
+    IEnumerator OnQuestionEndedProcess(UserData[] users, int correctIndex)
+    {
+        CounterManager.Instance.StopCounter();
+        QuestionManager.Instance.LightOption(correctIndex);
+        yield return new WaitForSeconds(2f);
         QuestionManager.Instance.SetPanelActive(false);
         CounterManager.Instance.StopCounter();
         for (int i = 0; i < users.Length; i++)
         {
             KahootPlayer player = GetPlayerFromAddress(users[i].id);
-            if(player)
+            if (player)
             {
                 player.ApplyScore(users[i].score);
             }
         }
     }
 
-    void OnLeaderboardReceived(string rankAddressesText)
+    void OnLeaderboardReceived(UserData[] users)
     {
-        string[] rankAddresses = rankAddressesText.Split('|');
-        string[] rankNames = GetNamesFromAddresses(rankAddresses);
         int myRank = -1;
-
-        for (int i = 0; i < rankAddresses.Length; i++)
+        for (int i = 0; i < users.Length; i++)
         {
-            if(rankAddresses[i].Equals(_suiAddress))
+            if(users[i].id.Equals(_suiAddress))
             {
                 myRank = i + 1;
                 break;
             }
         }
-        GameOverManager.Instance.SetRankNames(rankNames);
+        GameOverManager.Instance.SetRankNames(users);
         GameOverManager.Instance.SetRank(myRank);
         GameOverManager.Instance.SetPanelActive(true);
+        _confetti.SetActive(true);
     }
 
     string[] GetNamesFromAddresses(string[] addresses)
@@ -202,6 +248,14 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
     public void OnCreateRoomButtonClick()
     {
         StartCoroutine(CreateRoomProcess());
+    }
+
+    public void OnCreateBotRoomButtonClick()
+    {
+        _roomPanel.gameObject.SetActive(false);
+        LoadingManager.Instance.SetLoadingActive(true);
+        WebSocketManager.Instance.SendCreateBotRoom();
+        _isHost = true;
     }
 
     public void OnStartGameButtonClick()
@@ -242,22 +296,6 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
         }
     }
 
-    void HuntDeadPlayerInSameXWithShark()
-    {
-        for (int i = 0; i < _playerParent.childCount; i++)
-        {
-            KahootPlayer kp = _playerParent.GetChild(i).GetComponent<KahootPlayer>();
-            if(!kp.IsDead() || kp.IsHunted())
-            {
-                continue;
-            }
-            if(Mathf.Abs(kp.transform.position.x - _shark.transform.position.x) < 0.1f)
-            {
-                _shark.Hunt(kp);
-                return;
-            }
-        }
-    }
 
     KahootPlayer GetPlayerFromAddress(string address)
     {
@@ -271,5 +309,7 @@ public class KahootGameManager : LocalSingleton<KahootGameManager>
         }
         return null;
     }
+
+    
 
 }

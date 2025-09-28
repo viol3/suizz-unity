@@ -8,6 +8,8 @@ public class GameOverManager : LocalSingleton<GameOverManager>
     [SerializeField] private GameObject _panel;
     [Space]
     [SerializeField] private GameObject _trophy;
+    [SerializeField] private GameObject _hostTrophy;
+    [SerializeField] private GameObject _youAreText;
     [SerializeField] private GameObject _gameOverText;
     [Space]
     [SerializeField] private TMP_Text _rankText;
@@ -19,17 +21,25 @@ public class GameOverManager : LocalSingleton<GameOverManager>
         _panel.SetActive(active);
     }
 
-    public void SetRankNames(params string[] names)
+    public void SetRankNames(UserData[] users)
     {
         for (int i = 0; i < _rankPlayerUIs.Length; i++)
         {
-            _rankPlayerUIs[i].SetName(names[i]);
+            _rankPlayerUIs[i].SetName(users[i].name);
         }
     }
 
     public void SetRank(int rank)
     {
-        if(rank == 1)
+        if(rank == -1)
+        {
+            _gameOverText.SetActive(true);
+            _trophy.SetActive(false);
+            _youAreText.SetActive(false);
+            _rankText.gameObject.SetActive(false);
+            _hostTrophy.SetActive(true);
+        }
+        else if(rank == 1)
         {
             _trophy.SetActive(true);
             _gameOverText.SetActive(false);

@@ -1,3 +1,4 @@
+using Ali.Helper;
 using DG.Tweening;
 using System.Collections;
 using TMPro;
@@ -5,19 +6,21 @@ using UnityEngine;
 
 public class KahootPlayer : MonoBehaviour
 {
+    [SerializeField] private Color _color;
     [SerializeField] private float _offsetPerDamage = -1f;
     [SerializeField] private float _damageSpeed = 0.5f;
     [Space]
     [SerializeField] private TMP_Text _nameText;
     [SerializeField] private GameObject _mesh;
     [SerializeField] private ParticleSystem _splashParticle;
+    [SerializeField] private KahootShark _shark;
 
     private KahootTile _tile;
 
     private bool _dead = false;
     private bool _hunted = false;
 
-    private int _hp = 5;
+    private float _hp = 5;
 
     private string _nickname = "";
     private string _address = "";
@@ -26,9 +29,14 @@ public class KahootPlayer : MonoBehaviour
         _tile = KahootGameManager.Instance.GetTile(transform.GetSiblingIndex());
         _tile.gameObject.SetActive(true);
         _tile.transform.position = transform.position;
-        _tile.transform.DOMoveY(5.8f, 1f).SetEase(Ease.InOutSine);
-        transform.DOMoveY(5.8f, 1f).SetEase(Ease.InOutSine);
+        _tile.transform.DOMoveY(6f, 1f).SetEase(Ease.InOutSine);
+        transform.DOMoveY(6f, 1f).SetEase(Ease.InOutSine);
         _hp = 5;
+    }
+
+    public Color GetColor()
+    {
+        return _color;
     }
 
     public bool IsDead()
@@ -68,46 +76,40 @@ public class KahootPlayer : MonoBehaviour
         _mesh.gameObject.SetActive(false);
         _nameText.gameObject.SetActive(false);
         _splashParticle.Play();
+        _tile.gameObject.SetActive(false);
     }
 
-    public void Hunt()
+    void Hunt()
     {
         _hunted = true;
+        _shark.gameObject.SetActive(true);
+        _shark.Hunt(this);
     }
 
-    public void ApplyScore(int score)
+    public void ApplyScore(float score)
     {
-        int damage = _hp - score;
-        _hp -= damage;
-        if (damage > 0)
-        {
-            Damage(damage);
-        }
+        float y = GameUtility.GetValueFromRatio(score / 5f, 0f, 6f);
+        _hp = score;
+        StartCoroutine(ApplyScoreProcess(y));
     }
 
-    public void Damage(int damage)
+    IEnumerator ApplyScoreProcess(float newY)
     {
-        StartCoroutine(DamageProcess(damage));
-    }
-
-    IEnumerator DamageProcess(int damage)
-    {
-        float y = transform.position.y + (_offsetPerDamage * damage);
         bool death = false;
         
-        if(y < 0)
+        if(newY < 0)
         {
-            y = 0f;
             death = true;
         }
-        transform.DOMoveY(y, _damageSpeed).SetSpeedBased();
-        yield return _tile.transform.DOMoveY(y, _damageSpeed).SetSpeedBased().WaitForCompletion();
+        transform.DOMoveY(newY, _damageSpeed).SetSpeedBased();
+        yield return _tile.transform.DOMoveY(newY, _damageSpeed).SetSpeedBased().WaitForCompletion();
         if(death)
         {
             _dead = true;
             _tile.gameObject.SetActive(false);
             _nameText.color = Color.red;
             EventBus.OnPlayerDead?.Invoke(this);
+            Hunt();
         }
     }
 }

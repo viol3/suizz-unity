@@ -20,6 +20,8 @@ namespace PathCreation.Examples
                 // Subscribed to the pathUpdated event so that we're notified if the path changes during the game
                 pathCreator.pathUpdated += OnPathChanged;
             }
+            //transform.position = pathCreator.path.GetClosestPointOnPath(transform.position);
+            distanceTravelled = pathCreator.path.GetClosestDistanceAlongPath(transform.position);
         }
 
         void Update()
