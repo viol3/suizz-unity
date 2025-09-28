@@ -14,7 +14,7 @@ public class WebSocketManager : LocalSingleton<WebSocketManager>
 
     async void Connect()
     {
-        _websocket = new WebSocket("ws://localhost:1380");
+        _websocket = new WebSocket("ws://147.93.90.167:1380");
 
         _websocket.OnOpen += () =>
         {
